@@ -1,83 +1,84 @@
 ---@class rpChat
 local rpChat = {}
 
-rpChat.enableLocalChat = true
-rpChat.localChatRange = 0
+rpChat.TalkRange = 8
+rpChat.YellRange = 15
+rpChat.WhisperRange = 2
 rpChat.oocColour = color.OrangeRed
 rpChat.meColour = color.PaleGoldenRod
+rpChat.yellColour = color.Blue
+rpChat.whisperColour = color.Violet
 
-local function log(message)
-    tes3mp.LogMessage(enumerations.log.VERBOSE, "[ Mining ]: " .. message)
-end
+rpChat.functions = require('custom.rpChat.functions')
 
----@param message table
----@return string text
-local function concatenateMessage(message)
-    local text = ""
-    for i, j in pairs(message) do
-        if i ~= 1 then
-            text = text .. " " .. j
-        end
-    end
-    return text
-end
-
----@param cellDescription integer
+---@param source integer sourcePlayerID
 ---@param message string
-function rpChat.SendMessageToCell(cellDescription, message)
-    for _, pid in pairs(LoadedCells[cellDescription].visitors) do
-        if Players[pid].data.location.cell == cellDescription then
-            tes3mp.SendMessage(pid, message, false)
-        end
-    end
+function rpChat.Talk(source, message)
+    rpChat.functions.RangedMethod(source, message, rpChat.TalkRange)
 end
 
----@param pid integer PlayerID
----@param message string|table
-function rpChat.sendLocalMessage(pid, message)
-    if not rpChat.enableLocalChat then return end
-    local text = message
+---@param source integer sourcePlayerID
+---@param message string
+function rpChat.Yell(source, message)
+    rpChat.functions.RangedMethod(source, message, rpChat.YellRange)
+end
+
+---@param source integer sourcePlayerID
+---@param message string
+function rpChat.Whisper(source, message)
+    rpChat.functions.RangedMethod(source, message, rpChat.WhisperRange)
+end
+
+---@param pid integer Player ID
+---@param message table
+function rpChat.SendTalkMessage(pid, message)
+    local message = rpChat.functions.concatenateMessage(message)
+    rpChat.Talk(pid, "\n" .. message)
+end
+
+---@param pid integer Player ID
+---@param message table
+function rpChat.SendWhisperMessage(pid, message)
     local playerName = Players[pid].name
-    local cell = Players[pid].data.location.cell
-    rpChat.SendMessageToCell(cell, "\n" .. playerName .. ": " .. text)
+    local message = rpChat.functions.concatenateMessage(message)
+    local text = "\n" .. rpChat.whisperColour .. " [WHISPER] " .. playerName .. ": " .. message
+    rpChat.Whisper(pid, text)
+end
+
+---@param pid integer Player ID
+---@param message table
+function rpChat.SendYellMessage(pid, message)
+    local playerName = Players[pid].name
+    local message = rpChat.functions.concatenateMessage(message)
+    local text = "\n" .. rpChat.yellColour .. " [YELL] " .. playerName .. ": " .. message
+    rpChat.Yell(pid, text)
 end
 
 ---@param pid integer PlayerID
 ---@param message table
 function rpChat.meAction(pid, message)
-    if not rpChat.enableLocalChat then return end
     local playerName = Players[pid].name
-    local cell = Players[pid].data.location.cell
-    local text = concatenateMessage(message)
-    rpChat.SendMessageToCell(cell, rpChat.meColour .. "\n *" .. playerName .. " " .. text)
+    local text = rpChat.functions.concatenateMessage(message)
+    rpChat.Talk(pid, rpChat.meColour .. "\n *" .. playerName .. " " .. text)
 end
 
+---@param eventStatus table
 ---@param pid integer PlayerID
 ---@param message string
-function rpChat.sendGlobalMessage(pid, message)
-    log(message)
-    tes3mp.SendMessage(pid, message, true)
-end
-
----@param pid integer PlayerID
----@param message table
-function rpChat.sendOOCMessage(pid, message)
-    local playerName = Players[pid].name
-    local message = concatenateMessage(message)
-    local text = "\n" .. rpChat.oocColour .. " [OOC] " .. playerName .. ": " .. message
-    rpChat.sendGlobalMessage(pid, text)
-end
-
-function rpChat.onNoCommand(eventStatus, pid, message)
+function rpChat.sendOOCMessage(eventStatus, pid, message)
     eventStatus.validDefaultHandler = false
     local i, _ = string.find(message, "/")
     if i == 1 then return eventStatus end
-    rpChat.sendLocalMessage(pid, message)
+    local playerName = Players[pid].name
+    local text = "\n" .. rpChat.oocColour .. " [OOC] " .. playerName .. ": " .. message
+    tes3mp.SendMessage(pid, text, true)
     return eventStatus
 end
 
-customCommandHooks.registerCommand("ooc", rpChat.sendOOCMessage)
+customCommandHooks.registerCommand("t", rpChat.SendTalkMessage)
 customCommandHooks.registerCommand("me", rpChat.meAction)
-customEventHooks.registerValidator("OnPlayerSendMessage", rpChat.onNoCommand)
+customCommandHooks.registerCommand("whisper", rpChat.SendWhisperMessage)
+customCommandHooks.registerCommand("yell", rpChat.SendYellMessage)
+customEventHooks.registerValidator("OnPlayerSendMessage", rpChat.sendOOCMessage)
 
 return rpChat
