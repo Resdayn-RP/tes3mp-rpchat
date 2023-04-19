@@ -31,7 +31,7 @@ end
 function functions.sendRangedMessage(pid, pidTarget, maxDisplacement, message)
     if not pidTarget then return end
     local source, target = functions.getPlayerCoords(pid), functions.getPlayerCoords(pidTarget)
-    if #(source - target) > maxDisplacement then return end
+    if -(source - target) > maxDisplacement then return end
 
     tes3mp.SendMessage(pidTarget, message, false)
 end
